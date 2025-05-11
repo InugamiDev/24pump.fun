@@ -3,9 +3,22 @@
 import { Wallet, FireSimple, UserCircle, Briefcase, Users, Buildings, Sparkle, ArrowRight as ArrowRightIcon } from '@phosphor-icons/react'; // Renamed ArrowRight to avoid conflict
 import { useState, useEffect, useTransition } from 'react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation'; // Import useRouter
-import { connectWallet, seedJobs, getUser } from './actions'; // Removed unused job-related actions
+import { useRouter } from 'next/navigation';
+import { connectWallet, seedJobs } from './actions'; // Removed unused getUser
 import type { User } from '@prisma/client';
+
+// Define a type for the Solana object on window
+interface SolanaPhantom {
+  isPhantom: boolean;
+  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
+  disconnect: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    solana?: SolanaPhantom;
+  }
+}
 
 interface ClientUser extends Omit<User, 'createdAt' | 'tokenBalance'> {
     createdAt: string;
@@ -22,9 +35,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const connectOnLoad = async () => {
-      if ((window as any).solana && (window as any).solana.isPhantom) {
+      if (window.solana && window.solana.isPhantom) {
         try {
-          const resp = await (window as any).solana.connect({ onlyIfTrusted: true });
+          const resp = await window.solana.connect({ onlyIfTrusted: true });
           const address = resp.publicKey.toString();
           setWalletAddress(address);
           startTransition(async () => {
@@ -36,7 +49,7 @@ export default function HomePage() {
               // Do not set feedback message here, as user might not want to be immediately bothered
             }
           });
-        } catch (err) {
+        } catch { // _err removed as it was unused
           console.log("Phantom auto-connect failed or user declined.");
         }
       }
@@ -45,9 +58,9 @@ export default function HomePage() {
   }, []);
 
   const handleConnectWallet = async () => {
-    if ((window as any).solana && (window as any).solana.isPhantom) {
+    if (window.solana && window.solana.isPhantom) {
       try {
-        const resp = await (window as any).solana.connect();
+        const resp = await window.solana.connect();
         const address = resp.publicKey.toString();
         setWalletAddress(address);
         setFeedbackMessage(null);
@@ -72,11 +85,11 @@ export default function HomePage() {
   };
 
   const handleLogout = async () => {
-    if ((window as any).solana && (window as any).solana.isPhantom && (window as any).solana.disconnect) {
+    if (window.solana && window.solana.isPhantom && window.solana.disconnect) {
       try {
-        await (window as any).solana.disconnect();
-      } catch (err) {
-        console.error("Error during Phantom disconnect:", err);
+        await window.solana.disconnect();
+      } catch (_err) { // err is intentionally unused
+        console.error("Error during Phantom disconnect:", _err);
       }
     }
     setWalletAddress(null);
@@ -407,11 +420,11 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="bg-gray-800 p-10 rounded-xl shadow-2xl border border-blue-500/50"
+                className="bg-gray-800 p-10 rounded-xl shadow-2xl border border-blue-500 border-opacity-50"
             >
                 <UserCircle size={80} className="text-cyan-400 mx-auto mb-6" />
                 <h2 className="text-3xl font-bold mb-3 text-white">Welcome back, {user.walletAddress.substring(0,6)}...{user.walletAddress.substring(user.walletAddress.length - 4)}!</h2>
-                <p className="text-gray-400 mb-8 max-w-md mx-auto">You're all set to find your next opportunity or the perfect talent. Head over to the swipe deck to get started.</p>
+                <p className="text-gray-400 mb-8 max-w-md mx-auto">You&apos;re all set to find your next opportunity or the perfect talent. Head over to the swipe deck to get started.</p>
                 <motion.button
                     onClick={() => router.push('/swipe')}
                     className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-all shadow-lg hover:shadow-cyan-500/50 transform hover:scale-105 flex items-center mx-auto"

@@ -26,17 +26,20 @@ body {
   height: 8px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
-  @apply bg-gray-800/50 rounded-full;
+  @apply bg-gray-800/50 rounded-full; /* Tailwind utility classes are fine here */
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+  @apply bg-gray-700 rounded-full; /* Tailwind utility classes are fine here */
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+  @apply bg-gray-600; /* Tailwind utility classes are fine here */
 }
 
 /* For Firefox */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: theme('colors.gray.700') theme('colors.gray.800 / 0.5');
+  /* Using Tailwind's CSS variables for colors if available, or fallback to direct hex */
+  /* Assuming Tailwind v4 exposes colors as CSS variables like --tw-color-<name>-<shade> */
+  /* For simplicity and robustness, let's use common hex values that align with Tailwind's palette */
+  scrollbar-color: #374151 #1f293780; /* Corresponds roughly to gray-700 and gray-800/50 */
 }

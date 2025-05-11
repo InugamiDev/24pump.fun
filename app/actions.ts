@@ -72,9 +72,10 @@ export async function applyToJob(userId: string, jobId: string) {
             });
           });
           return { success: true, newBalance: updatedUser.tokenBalance };
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error('Transaction error applying to STABLE job:', e);
-          if (e.code === 'P2002') {
+          // Type guard for PrismaClientKnownRequestError or similar
+          if (typeof e === 'object' && e !== null && 'code' in e && (e as { code: string }).code === 'P2002') {
              return { success: false, message: 'Application failed: Already applied (transaction).', newBalance: user.tokenBalance };
           }
           throw new Error('Failed to apply to STABLE job due to a transaction error.');
@@ -91,9 +92,10 @@ export async function applyToJob(userId: string, jobId: string) {
       });
       return { success: true, newBalance: user.tokenBalance };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in applyToJob function:', error);
-     if (error.code === 'P2002') {
+    // Type guard for PrismaClientKnownRequestError or similar
+     if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
         const currentUser = await prisma.user.findUnique({ where: { id: userId } });
         return { success: false, message: 'Application failed: Already applied (general catch).', newBalance: currentUser ? currentUser.tokenBalance : 0 };
     }
