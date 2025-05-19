@@ -131,10 +131,10 @@ export default function TermsPage() {
             <p>
               For questions about these terms, please contact us at{" "}
               <a
-                href="mailto:legal@24pump.fun"
+                href="mailto:contact@24pump.fun"
                 className="text-primary hover:underline"
               >
-                legal@24pump.fun
+                contact@24pump.fun
               </a>
               .
             </p>

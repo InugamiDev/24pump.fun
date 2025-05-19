@@ -141,10 +141,10 @@ export default function PrivacyPage() {
             <p>
               For privacy-related questions, please contact us at{" "}
               <a
-                href="mailto:privacy@24pump.fun"
+                href="mailto:contact@24pump.fun"
                 className="text-primary hover:underline"
               >
-                privacy@24pump.fun
+                contact@24pump.fun
               </a>
               .
             </p>

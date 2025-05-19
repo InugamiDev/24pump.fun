@@ -89,7 +89,7 @@ export default function FAQPage() {
           <p className="text-center text-muted-foreground">
             Still have questions?{" "}
             <a
-              href="mailto:support@24pump.fun"
+              href="mailto:contact@24pump.fun"
               className="font-medium text-primary hover:underline"
             >
               Contact our support team

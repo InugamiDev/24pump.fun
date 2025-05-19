@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  wallet    String   @unique
+  coins     Coin[]
+  createdAt DateTime @default(now())
+}
+
+model Coin {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  name        String
+  symbol      String
+  mmdd        String   // unique per year
+  year        Int
+  txSignature String
+  createdAt   DateTime @default(now())
+
+  @@unique([mmdd, year])
+}

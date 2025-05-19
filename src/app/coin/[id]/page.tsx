@@ -19,9 +19,20 @@ export const metadata = {
 }
 
 // In production, params.id would be used to fetch the specific coin data
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function CoinPage({ params }: { params: { id: string } }) {
-  const coin = exampleCoin
+interface PageProps {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function CoinPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { id } = await params
+  // Allow searchParams to be unused since we don't need it yet
+  void searchParams
+  // For now use example data, but in production fetch using the id
+  const coin = { ...exampleCoin, id }
   const mintDate = new Date(coin.date)
   const mintedAt = new Date(coin.mintedAt)
 

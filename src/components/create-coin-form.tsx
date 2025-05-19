@@ -1,183 +1,208 @@
 "use client"
-import * as React from "react"
-import { useForm } from "react-hook-form"
-import { Calendar } from "@/components/ui/calendar"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Calendar } from "@/components/ui/calendar"
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { WalletButton } from "@/components/wallet-button"
-
-type FormData = {
-  date: Date | undefined
-}
-
-const steps = [
-  {
-    id: "wallet",
-    title: "Connect Wallet",
-    description: "Connect your Solana wallet to proceed",
-  },
-  {
-    id: "date",
-    title: "Choose Date",
-    description: "Select the date you want to mint",
-  },
-  {
-    id: "confirm",
-    title: "Confirm Creation",
-    description: "Review and confirm your coin creation",
-  },
-]
-
-// Example of minted dates - in production this would come from the blockchain
-const mintedDates = [
-  new Date("2025-12-25"), // Christmas
-  new Date("2025-01-01"), // New Year
-  new Date("2025-02-14"), // Valentine's
-]
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+import { calculateRequiredTFT } from "@/lib/tft-token"
+import { useTFT } from "@/hooks/use-tft"
+import { useDateAvailability } from "@/hooks/use-date-availability"
+import { CalendarIcon } from "lucide-react"
 
 export function CreateCoinForm() {
-  const [step, setStep] = React.useState(0)
-  const { connected } = useWallet()
-  
-  const form = useForm<FormData>({
-    defaultValues: {
-      date: undefined,
-    },
-  })
+  const { connected, publicKey } = useWallet()
+  const { balance } = useTFT()
+  const { isChecking, isAvailable, owner, coinName, error: dateError, checkDate } = useDateAvailability()
+  const [date, setDate] = useState<Date>()
+  const [name, setName] = useState("")
+  const [symbol, setSymbol] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Auto-advance to next step when wallet is connected
-  React.useEffect(() => {
-    if (connected && step === 0) {
-      setStep(1)
+  const requiredTFT = date ? calculateRequiredTFT(format(date, "MMdd")) : 0
+  const hasSufficientBalance = balance !== null && balance >= requiredTFT
+
+  // Check date availability when date changes
+  useEffect(() => {
+    if (date) {
+      checkDate(date)
     }
-  }, [connected, step])
+  }, [date, checkDate])
 
-  function onSubmit(data: FormData) {
-    if (step < steps.length - 1) {
-      setStep(step + 1)
-    } else {
-      console.log("Form submitted", data)
-      // TODO: Call contract to mint coin
+  const handleSubmit = async () => {
+    if (!connected || !publicKey) {
+      setError("Please connect your wallet first")
+      return
+    }
+
+    if (!date || !name || !symbol) {
+      setError("Please fill in all fields")
+      return
+    }
+
+    if (!isAvailable) {
+      setError("This date is already taken")
+      return
+    }
+
+    if (!hasSufficientBalance) {
+      setError(`Insufficient TFT balance. Required: ${requiredTFT} TFT`)
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+
+    try {
+      const response = await fetch("/api/coins/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          wallet: publicKey.toString(),
+          date: format(date, "MMdd"),
+          name,
+          symbol,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create coin")
+      }
+
+      // Clear form
+      setDate(undefined)
+      setName("")
+      setSymbol("")
+
+      // Redirect to coin page
+      window.location.href = `/coin/${data.id}`
+    } catch (err) {
+      console.error("Create coin error:", err)
+      setError(err instanceof Error ? err.message : "Failed to create coin")
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="space-y-8">
-      {/* Progress Steps */}
-      <nav aria-label="Progress">
-        <ol role="list" className="space-y-4 md:flex md:space-x-8 md:space-y-0">
-          {steps.map((s, i) => (
-            <li key={s.id} className="md:flex-1">
-              <div
-                className={`group flex flex-col border-l-4 py-2 pl-4 hover:border-slate-400 md:border-l-0 md:border-t-4 md:pb-0 md:pl-0 md:pt-4 ${
-                  step === i
-                    ? "border-primary"
-                    : step > i
-                    ? "border-primary/50"
-                    : "border-slate-200"
-                }`}
-              >
-                <span className="text-sm font-medium">Step {i + 1}</span>
-                <span className="text-sm">{s.title}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {step === 0 && (
-            <div className="flex flex-col items-center gap-6">
-              <p className="text-center text-muted-foreground">
-                Connect your wallet to start minting your timestamped coin
-              </p>
-              <WalletButton />
-            </div>
-          )}
-
-          {step === 1 && (
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Select Date</FormLabel>
-                  <FormControl>
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => {
-                        // Check if the date is already minted
-                        return mintedDates.some(
-                          (mintedDate) =>
-                            mintedDate.getMonth() === date.getMonth() &&
-                            mintedDate.getDate() === date.getDate()
-                        )
-                      }}
-                      className="rounded-md border"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Choose a date that means something special to you. Dates that are already minted will be disabled.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+    <div className="space-y-6">
+      {/* Date Picker */}
+      <div className="space-y-2">
+        <Label>Select Date</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !date && "text-muted-foreground"
               )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, "PPP") : "Pick a date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+              disabled={(date) => {
+                // Only allow current year
+                return date.getFullYear() !== new Date().getFullYear()
+              }}
+              initialFocus
             />
-          )}
+          </PopoverContent>
+        </Popover>
+        {isChecking && (
+          <p className="text-sm text-muted-foreground">Checking availability...</p>
+        )}
+        {!isChecking && date && !isAvailable && (
+          <p className="text-sm text-destructive">
+            Date already taken by {coinName} (Owner: {owner})
+          </p>
+        )}
+        {dateError && (
+          <p className="text-sm text-destructive">{dateError}</p>
+        )}
+      </div>
 
-          {step === 2 && (
-            <div className="rounded-lg border bg-card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Review Your Selection</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Selected Date</span>
-                  <span className="font-medium">
-                    {form.getValues("date")?.toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cost</span>
-                  <span className="font-medium">100 TFT</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Your TFT Balance</span>
-                  <span className="font-medium">
-                    {/* TODO: Get actual TFT balance */}
-                    0 TFT
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+      {/* Name Input */}
+      <div className="space-y-2">
+        <Label htmlFor="name">Coin Name</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Christmas 2024"
+        />
+      </div>
 
-          {step > 0 && (
-            <div className="flex justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep(step - 1)}
-              >
-                Previous
-              </Button>
-              <Button type="submit">
-                {step === steps.length - 1 ? "Create Coin" : "Next"}
-              </Button>
-            </div>
-          )}
-        </form>
-      </Form>
+      {/* Symbol Input */}
+      <div className="space-y-2">
+        <Label htmlFor="symbol">Symbol</Label>
+        <Input
+          id="symbol"
+          value={symbol}
+          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          placeholder="XMAS24"
+          maxLength={8}
+        />
+      </div>
+
+      {/* Required TFT */}
+      {date && (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Required TFT:</span>
+            <span className="font-medium">
+              {requiredTFT} TFT
+              {balance !== null && (
+                <span className="ml-2 text-sm text-muted-foreground">
+                  (Balance: {balance} TFT)
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="text-sm font-medium text-destructive">{error}</div>
+      )}
+
+      {/* Submit Button */}
+      <Button
+        className="w-full"
+        onClick={handleSubmit}
+        disabled={
+          loading ||
+          !connected ||
+          !date ||
+          !name ||
+          !symbol ||
+          !hasSufficientBalance ||
+          !isAvailable ||
+          isChecking
+        }
+      >
+        {loading ? "Creating..." : "Create Coin"}
+      </Button>
     </div>
   )
 }

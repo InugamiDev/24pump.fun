@@ -1,7 +1,7 @@
-// components/providers/lazorkit-wallet-context.tsx
 "use client"
  
-import React, { createContext, useContext} from "react"
+import React, { createContext, useContext } from "react"
+import type { TransactionInstruction } from "@solana/web3.js"
 import dynamic from "next/dynamic"
  
 // Interface for context
@@ -14,7 +14,7 @@ interface LazorKitWalletContextState {
   credentialId?: string | null
   connect: () => Promise<void>
   disconnect: () => void
-  signMessage: (instruction: unknown) => Promise<string>
+  signMessage: (instruction: TransactionInstruction) => Promise<string>
 }
  
 // Create context with default values
@@ -27,7 +27,7 @@ export const LazorKitWalletContext = createContext<LazorKitWalletContextState>({
   credentialId: null,
   connect: async () => {},
   disconnect: () => {},
-  signMessage: async () => "",
+  signMessage: async (instruction: TransactionInstruction) => { void instruction; return ""; },
 })
  
 // Export hook to use context

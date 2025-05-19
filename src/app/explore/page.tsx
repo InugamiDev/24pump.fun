@@ -1,7 +1,7 @@
 import { type Metadata } from "next"
-import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { DateCalendar } from "@/components/date-calendar"
 
 export const metadata: Metadata = {
   title: "Explore Calendar - 24pump.fun",
@@ -35,30 +35,9 @@ export default function ExplorePage() {
         <div className="rounded-lg border bg-card p-6">
           <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <Calendar
-                mode="single"
-                selected={undefined}
-                disabled={(date) => {
-                  // Only allow current year
-                  if (date.getFullYear() !== currentYear) return true
-                  
-                  // Check if date is already minted
-                  return mintedDates.some(
-                    (mintedDate) =>
-                      mintedDate.getMonth() === date.getMonth() &&
-                      mintedDate.getDate() === date.getDate()
-                  )
-                }}
-                className="rounded-md border"
-                modifiers={{
-                  minted: mintedDates,
-                }}
-                modifiersStyles={{
-                  minted: {
-                    backgroundColor: "var(--primary)",
-                    color: "var(--primary-foreground)",
-                  },
-                }}
+              <DateCalendar
+                currentYear={currentYear}
+                mintedDates={mintedDates}
               />
             </div>
             
