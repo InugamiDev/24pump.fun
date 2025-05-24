@@ -4,20 +4,38 @@ import { prisma } from "@/lib/prisma"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const mmdd = searchParams.get("date")?.replace("/", "")
-    const year = searchParams.get("year") || new Date().getFullYear().toString()
+    const dateStr = searchParams.get("date")
 
-    if (!mmdd || !/^\d{4}$/.test(mmdd)) {
+    if (!dateStr) {
+      return NextResponse.json(
+        { error: "Date parameter is required" },
+        { status: 400 }
+      )
+    }
+
+    // Parse the date and create start/end of day for the query
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
       return NextResponse.json(
         { error: "Invalid date format" },
         { status: 400 }
       )
     }
 
-    const existingCoin = await prisma.coin.findFirst({
+    // Set time to start of day UTC
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+
+    // Set time to end of day UTC
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    const existingSeries = await prisma.momentCoinSeries.findFirst({
       where: {
-        mmdd,
-        year: parseInt(year),
+        momentDateTimeUTC: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
       },
       select: {
         id: true,
@@ -30,11 +48,11 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    if (existingCoin) {
+    if (existingSeries) {
       return NextResponse.json({
         available: false,
-        owner: existingCoin.owner.wallet,
-        coinName: existingCoin.name,
+        owner: existingSeries.owner.wallet,
+        seriesName: existingSeries.name,
       })
     }
 
