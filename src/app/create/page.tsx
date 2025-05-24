@@ -1,7 +1,6 @@
 "use client";
 
 import { CreateCoinForm } from "@/components/create-coin-form";
-import { FeedbackBar } from "@/components/ui/feedback-bar";
 import { TokenExchange } from "@/components/token-exchange";
 
 export default function CreatePage() {

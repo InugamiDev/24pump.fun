@@ -7,7 +7,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { CalendarTime } from "@/components/ui/calendar-time";
 import { useLazorkitWallet } from "./providers/lazorkit-wallet-context";
 import { createMomentCoinSeries, listSocialCauses } from "@/app/actions";
@@ -74,7 +73,7 @@ const defaultValues: FormValues = {
 
 export function CreateCoinForm() {
   const { connected, publicKey } = useLazorkitWallet();
-  const { balance, setupTftAccount } = useTFT();
+  const { setupTftAccount } = useTFT();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingCauses, setIsLoadingCauses] = useState(false);
   const [socialCauses, setSocialCauses] = useState<SocialCause[]>([]);

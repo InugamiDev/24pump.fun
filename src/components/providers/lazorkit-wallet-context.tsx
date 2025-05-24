@@ -1,6 +1,15 @@
 import { createContext, useContext, useState } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
 
+interface SolanaWallet {
+  connect: () => Promise<void>;
+  publicKey: PublicKey;
+}
+
+interface WindowWithSolana extends Window {
+  solana?: SolanaWallet;
+}
+
 interface LazorkitWalletContextType {
   connected: boolean;
   publicKey: PublicKey | null;
@@ -25,7 +34,7 @@ export const LazorKitWalletProvider: React.FC<{ children: React.ReactNode }> = (
   const connect = async (): Promise<void> => {
     try {
       // Check if Solana wallet is available in the browser
-      const solana = (window as any).solana;
+      const solana = (window as WindowWithSolana).solana;
       
       if (!solana) {
         throw new Error("Solana wallet not found! Please install a Solana wallet extension.");

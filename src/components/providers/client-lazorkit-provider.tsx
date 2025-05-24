@@ -4,6 +4,21 @@ import { ReactNode, useCallback, useEffect, useState } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { LazorkitWalletContext } from "./lazorkit-wallet-context";
 
+interface PhantomWallet {
+  isConnected: boolean;
+  publicKey: PublicKey;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  on: (event: string, callback: () => void) => void;
+  removeAllListeners: () => void;
+}
+
+interface WindowWithPhantom extends Window {
+  phantom?: {
+    solana: PhantomWallet;
+  };
+}
+
 export function ClientLazorkitProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
@@ -12,7 +27,7 @@ export function ClientLazorkitProvider({ children }: { children: ReactNode }) {
   const checkAndUpdateWalletConnection = useCallback(async () => {
     try {
       // Check if Phantom wallet is available
-      const phantom = (window as any)?.phantom?.solana;
+      const phantom = (window as WindowWithPhantom)?.phantom?.solana;
       if (!phantom) {
         throw new Error("Phantom wallet not found! Please install it.");
       }
@@ -40,7 +55,7 @@ export function ClientLazorkitProvider({ children }: { children: ReactNode }) {
     checkAndUpdateWalletConnection();
 
     // Listen for wallet connection changes
-    const phantom = (window as any)?.phantom?.solana;
+    const phantom = (window as WindowWithPhantom)?.phantom?.solana;
     if (phantom) {
       phantom.on("connect", checkAndUpdateWalletConnection);
       phantom.on("disconnect", () => {
@@ -57,7 +72,7 @@ export function ClientLazorkitProvider({ children }: { children: ReactNode }) {
 
   const connect = async () => {
     try {
-      const phantom = (window as any)?.phantom?.solana;
+      const phantom = (window as WindowWithPhantom)?.phantom?.solana;
       if (!phantom) {
         throw new Error("Phantom wallet not found! Please install it.");
       }
@@ -73,7 +88,7 @@ export function ClientLazorkitProvider({ children }: { children: ReactNode }) {
 
   const disconnect = async () => {
     try {
-      const phantom = (window as any)?.phantom?.solana;
+      const phantom = (window as WindowWithPhantom)?.phantom?.solana;
       if (phantom) {
         await phantom.disconnect();
         setConnected(false);

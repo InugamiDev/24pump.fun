@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { PublicKey } from "@solana/web3.js";
 import { createMomentCoinMint } from "@/lib/token-minting";
-import { ensureTftAta, getTftBalance } from "@/lib/tft-token";
+import { getTftBalance } from "@/lib/tft-token";
 
 // Input validation schemas
 const CreateMomentCoinSeriesSchema = z.object({
