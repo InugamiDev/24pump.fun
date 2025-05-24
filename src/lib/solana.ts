@@ -1,4 +1,6 @@
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { PhantomProvider, WindowWithPhantom } from "@/types/phantom";
+
 export const SOLANA_RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_HOST!;
 export const connection = new Connection(SOLANA_RPC_ENDPOINT);
 
@@ -14,7 +16,7 @@ export async function getBalance(publicKey: PublicKey): Promise<number> {
 
 export async function signAndSendTransaction(
   transaction: Transaction,
-  phantom: any, // PhantomWallet type
+  phantom: PhantomProvider,
   feePayer: PublicKey
 ): Promise<string> {
   try {
@@ -37,15 +39,14 @@ export function shortenAddress(address: string, chars = 4): string {
   return `${address.slice(0, chars)}...${address.slice(-chars)}`;
 }
 
-
 let showWalletNotFoundDialog: (() => void) | null = null;
 
 export function setWalletDialogHandler(handler: () => void) {
   showWalletNotFoundDialog = handler;
 }
 
-export async function getPhantomWallet(): Promise<any> {
-  const phantom = (window as any)?.phantom?.solana;
+export async function getPhantomWallet(): Promise<PhantomProvider | null> {
+  const phantom = (window as WindowWithPhantom)?.phantom?.solana;
   
   if (!phantom) {
     if (showWalletNotFoundDialog) {
@@ -73,7 +74,7 @@ export async function requestWalletConnection(): Promise<PublicKey | null> {
     }
   }
   
-  return phantom.publicKey;
+  return phantom.publicKey ? new PublicKey(phantom.publicKey) : null;
 }
 
 export function isValidPublicKey(address: string): boolean {

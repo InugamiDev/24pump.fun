@@ -1,6 +1,8 @@
-import { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
+import { PublicKey, Transaction, TransactionInstruction, SystemProgram, ParsedAccountData } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { connection } from "./solana";
+import { ParsedTokenAccount } from "@/types/token-account";
+import { WindowWithPhantom } from "@/types/phantom";
 
 // Minimum SOL balance required for fees
 export const MINIMUM_SOL_BALANCE = 0.001; // 0.001 SOL for fees
@@ -25,10 +27,20 @@ export async function getTftBalance(walletPublicKey: PublicKey): Promise<number>
     );
 
     // Find the account for our TFT token
-    const tftAccount = tokenAccounts.value[0];
-    if (!tftAccount) return 0;
+    const account = tokenAccounts.value[0];
+    if (!account) return 0;
 
-    const amount = (tftAccount.account.data as any).parsed.info.tokenAmount.uiAmount;
+    // Cast to our ParsedTokenAccount type
+    const tftAccount = {
+      pubkey: account.pubkey,
+      account: {
+        ...account.account,
+        owner: account.account.owner as PublicKey,
+        data: account.account.data as ParsedAccountData
+      }
+    } as ParsedTokenAccount;
+
+    const amount = tftAccount.account.data.parsed.info.tokenAmount.uiAmount;
     return amount;
   } catch (error) {
     console.error("Error fetching TFT balance:", error);
@@ -84,7 +96,7 @@ export async function createTftAta(walletPublicKey: PublicKey): Promise<string> 
     // Add the instruction
     transaction.add(instruction);
 
-    const phantom = (window as any).phantom?.solana;
+    const phantom = (window as WindowWithPhantom).phantom?.solana;
     if (!phantom) throw new Error("Phantom wallet not found");
 
     // Sign and send transaction
@@ -174,7 +186,7 @@ export async function exchangeSolToTft(
       throw new Error("Failed to locate TFT token account");
     }
 
-    // First transfer SOL
+    // Add SOL transfer instruction
     transaction.add(
       SystemProgram.transfer({
         fromPubkey: walletPublicKey,
@@ -183,12 +195,12 @@ export async function exchangeSolToTft(
       })
     );
 
-    // Then mint TFT tokens
     // Calculate token amount and create buffer (with 9 decimals)
     const tokenAmount = Math.floor(tftAmount * 1e9);
     const amountBuffer = new Uint8Array(8);
     new DataView(amountBuffer.buffer).setBigUint64(0, BigInt(tokenAmount), true); // true for little-endian
 
+    // Add mint instruction
     const mintInstruction = new TransactionInstruction({
       keys: [
         { pubkey: tftMintPubkey, isSigner: false, isWritable: true },      // Token mint account
@@ -203,8 +215,7 @@ export async function exchangeSolToTft(
     });
     transaction.add(mintInstruction);
     
-    // Get phantom wallet
-    const phantom = (window as any).phantom?.solana;
+    const phantom = (window as WindowWithPhantom).phantom?.solana;
     if (!phantom) throw new Error("Phantom wallet not found");
 
     // Sign and send transaction
@@ -233,9 +244,6 @@ export async function exchangeTftToSol(
     if (currentSolBalance < MINIMUM_SOL_BALANCE) {
       throw new Error(`Please keep at least ${MINIMUM_SOL_BALANCE} SOL for transaction fees`);
     }
-
-    const solAmount = tftAmount / 100; // 100 TFT = 1 SOL
-    const lamports = solAmount * 1e9;
 
     const transaction = new Transaction();
     
@@ -274,8 +282,7 @@ export async function exchangeTftToSol(
       })
     );
     
-    // Get phantom wallet
-    const phantom = (window as any).phantom?.solana;
+    const phantom = (window as WindowWithPhantom).phantom?.solana;
     if (!phantom) throw new Error("Phantom wallet not found");
 
     // Sign and send transaction
