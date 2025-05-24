@@ -10,6 +10,7 @@ import { useTFT } from "@/hooks/use-tft"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { Spinner } from "@/components/ui/spinner"
+import { ExchangeError } from "@/types/errors"
 
 interface TokenExchangeProps {
   onSuccess?: (signature: string) => void
@@ -77,9 +78,10 @@ export function TokenExchange({ onSuccess }: TokenExchangeProps) {
       setAmount("")
       toast.success(`Successfully exchanged ${parsedAmount} ${isTftToSol ? 'TFT to SOL' : 'SOL to TFT'}`)
       onSuccess?.(signature)
-    } catch (err: any) {
-      console.error("Exchange error:", err)
-      toast.error(err.message || "Exchange failed. Please try again.")
+    } catch (err) {
+      const error = err as ExchangeError
+      console.error("Exchange error:", error)
+      toast.error(error.message || "Exchange failed. Please try again.")
     }
   }
 

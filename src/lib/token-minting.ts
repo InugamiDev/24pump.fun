@@ -1,14 +1,15 @@
 import {
-  Connection,
   Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
-  sendAndConfirmTransaction,
+  ParsedAccountData,
 } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { connection } from "./solana";
 import { SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID } from "./tft-token";
+import { WindowWithPhantom } from "@/types/phantom";
+import { ParsedMintAccount } from "@/types/token-mint";
 
 interface MintConfig {
   name: string;
@@ -28,7 +29,7 @@ function createMintToInstructionData(amount: bigint): Buffer {
 export async function createMomentCoinMint(
   creatorWallet: PublicKey,
   config: MintConfig
-): Promise<{ mintAddress: string, signature: string }> {
+): Promise<{ mintAddress: string; signature: string }> {
   try {
     // Generate a new keypair for the mint
     const mintKeypair = Keypair.generate();
@@ -109,7 +110,7 @@ export async function createMomentCoinMint(
       .add(mintToIx);
 
     // Get phantom wallet
-    const phantom = (window as any).phantom?.solana;
+    const phantom = (window as WindowWithPhantom).phantom?.solana;
     if (!phantom) throw new Error("Phantom wallet not found");
 
     // Sign and send transaction
@@ -132,8 +133,9 @@ export async function isMintOwner(mintAddress: string, walletAddress: string): P
     const mintInfo = await connection.getParsedAccountInfo(new PublicKey(mintAddress));
     if (!mintInfo.value) return false;
 
-    const data = (mintInfo.value.data as any).parsed;
-    return data.info.mintAuthority === walletAddress;
+    const data = mintInfo.value.data as ParsedAccountData;
+    const parsedData = data as unknown as ParsedMintAccount;
+    return parsedData.parsed.info.mintAuthority === walletAddress;
   } catch (error) {
     console.error("Error checking mint ownership:", error);
     return false;
