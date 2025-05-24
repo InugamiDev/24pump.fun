@@ -1,12 +1,40 @@
-import { Keypair, Connection, Transaction, SystemProgram, PublicKey } from "@solana/web3.js";
-import { 
-  TOKEN_PROGRAM_ID,
-  MINT_SIZE,
-  createInitializeMintInstruction,
-} from "@solana/spl-token";
+import { Keypair, Connection, Transaction, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import * as dotenv from "dotenv";
 
 dotenv.config();
+
+// The size of a token mint account is 82 bytes
+const MINT_ACCOUNT_SIZE = 82;
+
+function createInitializeMintInstruction(
+  mint: Keypair,
+  decimals: number,
+  mintAuthority: Keypair,
+  freezeAuthority: Keypair | null
+): TransactionInstruction {
+  const data = Buffer.alloc(67);
+  // Instruction code for InitializeMint
+  data[0] = 0;
+  // Write decimals
+  data[1] = decimals;
+  // Write mint authority
+  mintAuthority.publicKey.toBuffer().copy(data, 2);
+  // Write freeze authority
+  if (freezeAuthority) {
+    data[34] = 1;
+    freezeAuthority.publicKey.toBuffer().copy(data, 35);
+  }
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: mint.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    programId: TOKEN_PROGRAM_ID,
+    data
+  });
+}
 
 async function createTftTokenMint() {
   // Connect to devnet
@@ -24,23 +52,22 @@ async function createTftTokenMint() {
   console.log("Payer public key:", payer.publicKey.toString());
 
   // Calculate rent-exempt amount
-  const lamports = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+  const lamports = await connection.getMinimumBalanceForRentExemption(MINT_ACCOUNT_SIZE);
 
   // Create a transaction to create the mint account
   const transaction = new Transaction().add(
     SystemProgram.createAccount({
       fromPubkey: payer.publicKey,
       newAccountPubkey: mintKeypair.publicKey,
-      space: MINT_SIZE,
+      space: MINT_ACCOUNT_SIZE,
       lamports,
       programId: TOKEN_PROGRAM_ID,
     }),
     createInitializeMintInstruction(
-      mintKeypair.publicKey,  // mint pubkey
-      0,                      // decimals
-      payer.publicKey,        // mint authority
-      payer.publicKey,        // freeze authority (you can use null to disable)
-      TOKEN_PROGRAM_ID
+      mintKeypair,  // mint
+      0,            // decimals
+      payer,        // mint authority
+      payer         // freeze authority
     )
   );
 

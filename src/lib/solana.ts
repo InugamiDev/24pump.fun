@@ -39,6 +39,23 @@ export function shortenAddress(address: string, chars = 4): string {
   return `${address.slice(0, chars)}...${address.slice(-chars)}`;
 }
 
+/**
+ * Validates if a string is a valid Solana address
+ * @param address - The string to validate
+ * @returns true if the string is a valid Solana address
+ */
+export function isValidSolanaAddress(address: string): boolean {
+  try {
+    new PublicKey(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Alias for backward compatibility
+export const isValidPublicKey = isValidSolanaAddress;
+
 let showWalletNotFoundDialog: (() => void) | null = null;
 
 export function setWalletDialogHandler(handler: () => void) {
@@ -75,13 +92,4 @@ export async function requestWalletConnection(): Promise<PublicKey | null> {
   }
   
   return phantom.publicKey ? new PublicKey(phantom.publicKey) : null;
-}
-
-export function isValidPublicKey(address: string): boolean {
-  try {
-    new PublicKey(address);
-    return true;
-  } catch {
-    return false;
-  }
 }

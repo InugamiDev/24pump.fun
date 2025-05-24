@@ -10,6 +10,12 @@ import { connection } from "./solana";
 import { SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID } from "./tft-token";
 import { WindowWithPhantom } from "@/types/phantom";
 import { ParsedMintAccount } from "@/types/token-mint";
+import { ExchangeError } from "@/types/errors";
+
+// Token program constants
+const MINT_ACCOUNT_SIZE = 82; // Size of mint account data
+const MINT_INITIALIZE_INSTRUCTION = 0; // Token program instruction for InitializeMint
+const MINT_TO_INSTRUCTION = 7; // Token program instruction for MintTo
 
 interface MintConfig {
   name: string;
@@ -19,13 +25,25 @@ interface MintConfig {
   burnable: boolean;
 }
 
+/**
+ * Creates the instruction data for minting tokens
+ * Layout:
+ * - Byte 0: Instruction code (7 for MintTo)
+ * - Bytes 1-8: Amount as little-endian 64-bit integer
+ */
 function createMintToInstructionData(amount: bigint): Buffer {
   const buffer = Buffer.alloc(9);
-  buffer[0] = 7; // MintTo instruction
+  buffer[0] = MINT_TO_INSTRUCTION;
   buffer.writeBigUInt64LE(amount, 1);
   return buffer;
 }
 
+/**
+ * Creates a new moment coin mint with the specified configuration
+ * @param creatorWallet - Public key of the wallet that will be the mint authority
+ * @param config - Configuration for the new token mint
+ * @returns Object containing the mint address and transaction signature
+ */
 export async function createMomentCoinMint(
   creatorWallet: PublicKey,
   config: MintConfig
@@ -36,18 +54,25 @@ export async function createMomentCoinMint(
     const mintPubkey = mintKeypair.publicKey;
 
     // Calculate the rent-exempt reserve for the mint
-    const rentExemptMinimum = await connection.getMinimumBalanceForRentExemption(82);
+    const rentExemptMinimum = await connection.getMinimumBalanceForRentExemption(MINT_ACCOUNT_SIZE);
 
     // Create the mint account
     const createMintAccountIx = SystemProgram.createAccount({
       fromPubkey: creatorWallet,
       newAccountPubkey: mintPubkey,
-      space: 82,
+      space: MINT_ACCOUNT_SIZE,
       lamports: rentExemptMinimum,
       programId: TOKEN_PROGRAM_ID,
     });
 
-    // Initialize the mint
+    /**
+     * Initialize mint instruction data layout:
+     * - Byte 0: Instruction code (0 for InitializeMint)
+     * - Byte 1: Number of decimals
+     * - Bytes 2-33: Mint authority public key (32 bytes)
+     * - Byte 34: Has freeze authority (0 = no, 1 = yes)
+     * - Bytes 35-66: Freeze authority public key (32 bytes, if has_freeze = 1)
+     */
     const initializeMintIx = new Transaction().add({
       keys: [
         { pubkey: mintPubkey, isSigner: false, isWritable: true },
@@ -55,10 +80,10 @@ export async function createMomentCoinMint(
       ],
       programId: TOKEN_PROGRAM_ID,
       data: Buffer.from([
-        0, // Initialize instruction
-        ...new Uint8Array([config.decimals]), // Number of decimals
-        ...creatorWallet.toBuffer(), // Mint authority
-        ...Buffer.from([0]), // Freeze authority (none)
+        MINT_INITIALIZE_INSTRUCTION,
+        config.decimals,
+        ...creatorWallet.toBuffer(),
+        0, // No freeze authority
       ]),
     });
 
@@ -111,7 +136,11 @@ export async function createMomentCoinMint(
 
     // Get phantom wallet
     const phantom = (window as WindowWithPhantom).phantom?.solana;
-    if (!phantom) throw new Error("Phantom wallet not found");
+    if (!phantom) {
+      const error = new Error("Phantom wallet not found") as ExchangeError;
+      error.code = "WALLET_NOT_FOUND";
+      throw error;
+    }
 
     // Sign and send transaction
     const { signature } = await phantom.signAndSendTransaction(transaction);
@@ -124,10 +153,18 @@ export async function createMomentCoinMint(
 
   } catch (error) {
     console.error("Error creating moment coin mint:", error);
-    throw error;
+    const exchangeError = error as ExchangeError;
+    exchangeError.code = exchangeError.code || "MINT_CREATE_ERROR";
+    throw exchangeError;
   }
 }
 
+/**
+ * Checks if a wallet is the owner (mint authority) of a token mint
+ * @param mintAddress - Address of the token mint to check
+ * @param walletAddress - Address of the wallet to check ownership for
+ * @returns True if the wallet is the mint authority
+ */
 export async function isMintOwner(mintAddress: string, walletAddress: string): Promise<boolean> {
   try {
     const mintInfo = await connection.getParsedAccountInfo(new PublicKey(mintAddress));
