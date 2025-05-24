@@ -1,8 +1,5 @@
 import { Keypair, Connection, Transaction, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import * as dotenv from "dotenv";
-
-dotenv.config();
 
 // The size of a token mint account is 82 bytes
 const MINT_ACCOUNT_SIZE = 82;
