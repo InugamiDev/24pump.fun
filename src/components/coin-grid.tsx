@@ -8,18 +8,18 @@ import Link from "next/link"
 const exampleFeed = [
   {
     id: "1",
-    date: "2024-12-25",
-    name: "Christmas 2024",
+    date: "2025-12-25",
+    name: "Christmas 2025",
     creator: "0x1234...5678",
-    mintedAt: "2024-05-19T08:30:00.000Z",
+    mintedAt: "2025-05-19T08:30:00.000Z",
     description: "The magic of Christmas, preserved on-chain.",
   },
   {
     id: "2",
-    date: "2024-01-01",
-    name: "New Year 2024",
+    date: "2025-01-01",
+    name: "New Year 2025",
     creator: "0x8765...4321",
-    mintedAt: "2024-05-18T15:45:00.000Z",
+    mintedAt: "2025-05-18T15:45:00.000Z",
     description: "A fresh start, tokenized forever.",
   },
 ]

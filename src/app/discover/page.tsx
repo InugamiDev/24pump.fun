@@ -24,18 +24,18 @@ type ViewMode = "feed" | "grid"
 const initialCoins = [
   {
     id: "1",
-    date: "2024-12-25",
-    name: "Christmas 2024",
+    date: "2025-12-25",
+    name: "Christmas 2025",
     creator: "0x1234...5678",
-    mintedAt: "2024-05-19T08:30:00.000Z",
+    mintedAt: "2025-05-19T08:30:00.000Z",
     description: "The magic of Christmas, preserved on-chain.",
   },
   {
     id: "2",
-    date: "2024-01-01",
-    name: "New Year 2024",
+    date: "2025-01-01",
+    name: "New Year 2025",
     creator: "0x8765...4321",
-    mintedAt: "2024-05-18T15:45:00.000Z",
+    mintedAt: "2025-05-18T15:45:00.000Z",
     description: "A fresh start, tokenized forever.",
   },
 ]
@@ -44,18 +44,18 @@ const initialCoins = [
 const moreCoins = [
   {
     id: "3",
-    date: "2024-02-14",
+    date: "2025-02-14",
     name: "Valentine's Day",
     creator: "0x9876...5432",
-    mintedAt: "2024-05-17T10:20:00.000Z",
+    mintedAt: "2025-05-17T10:20:00.000Z",
     description: "Love, immortalized on the blockchain.",
   },
   {
     id: "4",
-    date: "2024-07-04",
+    date: "2025-07-04",
     name: "Independence Day",
     creator: "0x5432...8765",
-    mintedAt: "2024-05-16T14:30:00.000Z",
+    mintedAt: "2025-05-16T14:30:00.000Z",
     description: "Freedom rings on the blockchain.",
   },
 ]

@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 
 // Example data - In production, this would come from the blockchain
 const mintedDates = [
-  new Date("2024-12-25"), // Christmas
-  new Date("2024-01-01"), // New Year
-  new Date("2024-02-14"), // Valentine's
-  new Date("2024-07-04"), // Independence Day
+  new Date("2025-12-25"), // Christmas
+  new Date("2025-01-01"), // New Year
+  new Date("2025-02-14"), // Valentine's
+  new Date("2025-07-04"), // Independence Day
 ]
 
 export default function ExplorePage() {
