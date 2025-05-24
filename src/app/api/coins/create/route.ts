@@ -5,10 +5,20 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { wallet, date, name, symbol } = body
+    const { 
+      wallet, 
+      name, 
+      symbol, 
+      momentDateTimeUTC, 
+      narrative,
+      totalSupply,
+      socialCauseId,
+      smartContractAddress,
+      creationTxSignature 
+    } = body
 
-    // Validate inputs
-    if (!wallet || !date || !name || !symbol) {
+    // Validate required inputs
+    if (!wallet || !name || !symbol || !momentDateTimeUTC || !socialCauseId || !smartContractAddress) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -23,28 +33,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse MMDD and validate
-    const mmdd = date.replace("/", "")
-    if (!/^\d{4}$/.test(mmdd)) {
-      return NextResponse.json(
-        { error: "Invalid date format" },
-        { status: 400 }
-      )
-    }
-
-    const currentYear = new Date().getFullYear()
-
-    // Check if date is already taken
-    const existingCoin = await prisma.coin.findFirst({
+    // Check if smart contract address is already used
+    const existingSeries = await prisma.momentCoinSeries.findUnique({
       where: {
-        mmdd,
-        year: currentYear,
+        smartContractAddress,
       },
     })
 
-    if (existingCoin) {
+    if (existingSeries) {
       return NextResponse.json(
-        { error: "Date already taken" },
+        { error: "Smart contract address already in use" },
         { status: 400 }
       )
     }
@@ -56,24 +54,32 @@ export async function POST(request: NextRequest) {
       create: { wallet },
     })
 
-    // TODO: Call Solana contract to mint token
-    const txSignature = "mock_tx_signature" // Replace with actual tx
-
-    // Create coin record
-    const coin = await prisma.coin.create({
+    // Create series record
+    const series = await prisma.momentCoinSeries.create({
       data: {
         ownerId: user.id,
         name,
         symbol,
-        mmdd,
-        year: currentYear,
-        txSignature,
+        momentDateTimeUTC: new Date(momentDateTimeUTC),
+        narrative: narrative || "",
+        totalSupply: BigInt(totalSupply || 0),
+        smartContractAddress,
+        creationTxSignature,
+        socialCauseId,
       },
+      include: {
+        socialCause: {
+          select: {
+            name: true,
+            description: true
+          }
+        }
+      }
     })
 
-    return NextResponse.json(coin)
+    return NextResponse.json(series)
   } catch (error) {
-    console.error("Error creating coin:", error)
+    console.error("Error creating series:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

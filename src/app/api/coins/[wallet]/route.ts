@@ -16,14 +16,22 @@ export async function GET(
       )
     }
 
-    // Get user and their coins
+    // Get user and their created series
     const user = await prisma.user.findUnique({
       where: { wallet },
       include: {
-        coins: {
+        createdSeries: {
           orderBy: {
             createdAt: "desc",
           },
+          include: {
+            socialCause: {
+              select: {
+                name: true,
+                description: true
+              }
+            }
+          }
         },
       },
     })
@@ -36,23 +44,26 @@ export async function GET(
     }
 
     // Format the response
-    const formattedCoins = user.coins.map((coin) => ({
-      id: coin.id,
-      name: coin.name,
-      symbol: coin.symbol,
-      date: `${coin.mmdd.slice(0, 2)}/${coin.mmdd.slice(2)}`,
-      year: coin.year,
-      createdAt: coin.createdAt,
-      txSignature: coin.txSignature,
+    const formattedSeries = user.createdSeries.map((series) => ({
+      id: series.id,
+      name: series.name,
+      symbol: series.symbol,
+      date: series.momentDateTimeUTC,
+      narrative: series.narrative,
+      totalSupply: series.totalSupply.toString(),
+      smartContractAddress: series.smartContractAddress,
+      txSignature: series.creationTxSignature,
+      socialCause: series.socialCause,
+      createdAt: series.createdAt,
     }))
 
     return NextResponse.json({
       wallet: user.wallet,
-      coins: formattedCoins,
-      totalCoins: formattedCoins.length,
+      series: formattedSeries,
+      totalSeries: formattedSeries.length,
     })
   } catch (error) {
-    console.error("Error fetching coins:", error)
+    console.error("Error fetching series:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
