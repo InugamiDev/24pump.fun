@@ -9,7 +9,7 @@ import { WalletButton } from "@/components/wallet-button"
 const routes = [
   {
     href: "/create",
-    label: "Create Coin",
+    label: "Create Your Moment",
   },
   {
     href: "/discover",
@@ -17,7 +17,7 @@ const routes = [
   },
   {
     href: "/how-it-works",
-    label: "How It Works",
+    label: "Our Impact Model",
   },
   {
     href: "/explore",

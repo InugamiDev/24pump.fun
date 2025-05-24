@@ -1,77 +1,86 @@
-import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js"
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+export const SOLANA_RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_HOST!;
+export const connection = new Connection(SOLANA_RPC_ENDPOINT);
 
-// Initialize Solana connection
-export const connection = new Connection(
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL_DEVNET || clusterApiUrl("devnet"),
-  "confirmed"
-)
-
-// Mock TFT token mint address (replace with actual mint in production)
-export const TFT_MINT = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-
-// Utility functions
-export function isValidSolanaAddress(address: string): boolean {
+export async function getBalance(publicKey: PublicKey): Promise<number> {
   try {
-    new PublicKey(address)
-    return true
-  } catch {
-    return false
+    const balance = await connection.getBalance(publicKey);
+    return balance / 1e9; // Convert lamports to SOL
+  } catch (error) {
+    console.error("Error fetching balance:", error);
+    return 0;
   }
 }
 
-// Get token balance for a wallet
-export async function getTokenBalance(
-  walletAddress: string,
-  mintAddress: string = TFT_MINT.toString()
-): Promise<number> {
+export async function signAndSendTransaction(
+  transaction: Transaction,
+  phantom: any, // PhantomWallet type
+  feePayer: PublicKey
+): Promise<string> {
   try {
-    const wallet = new PublicKey(walletAddress)
-    const mint = new PublicKey(mintAddress)
+    // Get the latest blockhash and set transaction parameters
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = feePayer;
 
-    const tokenAccounts = await connection.getTokenAccountsByOwner(wallet, {
-      programId: TOKEN_PROGRAM_ID,
-    })
+    // Sign and send the transaction
+    const { signature } = await phantom.signAndSendTransaction(transaction);
+    await connection.confirmTransaction(signature, "confirmed");
+    return signature;
+  } catch (error) {
+    console.error("Transaction failed:", error);
+    throw error;
+  }
+}
 
-    for (const { account } of tokenAccounts.value) {
-      const accountMint = account.data.slice(0, 32)
-      if (accountMint.equals(mint.toBuffer())) {
-        const balance = account.data.readBigUInt64LE(64)
-        return Number(balance)
-      }
+export function shortenAddress(address: string, chars = 4): string {
+  return `${address.slice(0, chars)}...${address.slice(-chars)}`;
+}
+
+
+let showWalletNotFoundDialog: (() => void) | null = null;
+
+export function setWalletDialogHandler(handler: () => void) {
+  showWalletNotFoundDialog = handler;
+}
+
+export async function getPhantomWallet(): Promise<any> {
+  const phantom = (window as any)?.phantom?.solana;
+  
+  if (!phantom) {
+    if (showWalletNotFoundDialog) {
+      showWalletNotFoundDialog();
     }
-
-    return 0
-  } catch {
-    return 0
-  }
-}
-
-// Check if a date is available (not minted)
-export async function isDateAvailable(mmdd: string, year: number): Promise<boolean> {
-  // TODO: Implement check against smart contract
-  // For now, return mock data based on year and mmdd
-  const takenDates: Record<number, string[]> = {
-    2024: ["1225", "0101", "0214"],
-    2025: ["1225", "0101"],
+    return null;
   }
   
-  const yearDates = takenDates[year] || []
-  return !yearDates.includes(mmdd)
+  return phantom;
 }
 
-// Calculate minting fee in TFT
-export function calculateMintingFee(): number {
-  // TODO: Implement dynamic fee calculation
-  return 100 // Fixed fee of 100 TFT for now
+export async function requestWalletConnection(): Promise<PublicKey | null> {
+  const phantom = await getPhantomWallet();
+  
+  if (!phantom) {
+    return null;
+  }
+  
+  if (!phantom.isConnected) {
+    try {
+      await phantom.connect();
+    } catch (error) {
+      console.error("Error connecting to Phantom wallet:", error);
+      return null;
+    }
+  }
+  
+  return phantom.publicKey;
 }
 
-// Format SOL balance
-export function formatSOL(lamports: number): string {
-  return (lamports / 1e9).toFixed(4)
-}
-
-// Format TFT balance
-export function formatTFT(amount: number): string {
-  return amount.toLocaleString()
+export function isValidPublicKey(address: string): boolean {
+  try {
+    new PublicKey(address);
+    return true;
+  } catch {
+    return false;
+  }
 }

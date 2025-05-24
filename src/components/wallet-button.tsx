@@ -1,38 +1,38 @@
-import { useWallet } from "@solana/wallet-adapter-react"
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
-import { Button } from "@/components/ui/button"
-import { shortenAddress } from "@/lib/utils"
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { useLazorkitWallet } from "./providers/lazorkit-wallet-context";
 
 export function WalletButton() {
-  const { connected, publicKey } = useWallet()
+  const { connected, publicKey, balance, connect, disconnect } = useLazorkitWallet();
+
+  const handleClick = async () => {
+    try {
+      if (connected) {
+        await disconnect();
+      } else {
+        await connect();
+      }
+    } catch (error) {
+      console.error("Wallet operation failed:", error);
+    }
+  };
 
   return (
-    <div className="relative ml-2">
+    <Button
+      onClick={handleClick}
+      variant={connected ? "outline" : "default"}
+    >
       {connected ? (
-        <div className="hidden sm:block">
-          <WalletMultiButton className="!bg-secondary hover:!bg-secondary/90" />
+        <div className="flex items-center gap-2">
+          <span>{`${publicKey?.toString().slice(0, 4)}...${publicKey?.toString().slice(-4)}`}</span>
+          <span className="text-sm text-muted-foreground">
+            ({balance.toFixed(2)} SOL)
+          </span>
         </div>
       ) : (
-        <Button 
-          variant="secondary" 
-          className="hidden sm:inline-flex"
-        >
-          Connect Wallet
-        </Button>
+        "Connect Wallet"
       )}
-
-      {/* Mobile Version */}
-      <div className="sm:hidden">
-        {connected ? (
-          <Button variant="secondary" size="sm">
-            {shortenAddress(publicKey?.toString() || "")}
-          </Button>
-        ) : (
-          <Button variant="secondary" size="sm">
-            Connect
-          </Button>
-        )}
-      </div>
-    </div>
-  )
+    </Button>
+  );
 }

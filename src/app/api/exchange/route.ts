@@ -1,21 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { isValidSolanaAddress } from "@/lib/solana"
-import { exchangeSOLtoTFT, getTFTBalance } from "@/lib/tft-token"
+import { PublicKey } from "@solana/web3.js"
+import { isValidPublicKey } from "@/lib/solana"
+import { exchangeSolToTft, exchangeTftToSol, getTftBalance } from "@/lib/tft-token"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { wallet, solAmount } = body
+    const { wallet, amount, type } = body
 
     // Validate inputs
-    if (!wallet || !solAmount) {
+    if (!wallet || !amount || !type) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       )
     }
 
-    if (!isValidSolanaAddress(wallet)) {
+    if (!isValidPublicKey(wallet)) {
       return NextResponse.json(
         { error: "Invalid wallet address" },
         { status: 400 }
@@ -23,26 +24,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate amount
-    if (solAmount <= 0) {
+    if (amount <= 0) {
       return NextResponse.json(
         { error: "Amount must be greater than 0" },
         { status: 400 }
       )
     }
 
-    // Execute exchange
-    const signature = await exchangeSOLtoTFT({
-      userAddress: wallet,
-      solAmount,
-    })
+    const walletPublicKey = new PublicKey(wallet)
+
+    // Execute exchange based on type
+    const signature = type === 'SOL_TO_TFT'
+      ? await exchangeSolToTft(walletPublicKey, amount)
+      : await exchangeTftToSol(walletPublicKey, amount)
 
     // Get updated TFT balance
-    const tftBalance = await getTFTBalance(wallet)
+    const balance = await getTftBalance(walletPublicKey)
 
     return NextResponse.json({
       signature,
-      tftBalance: tftBalance.balance,
-      formattedBalance: tftBalance.formattedBalance,
+      balance,
+      formattedBalance: balance.toLocaleString()
     })
   } catch (error) {
     console.error("Error processing exchange:", error)
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!isValidSolanaAddress(wallet)) {
+    if (!isValidPublicKey(wallet)) {
       return NextResponse.json(
         { error: "Invalid wallet address" },
         { status: 400 }
@@ -73,9 +75,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get TFT balance
-    const balance = await getTFTBalance(wallet)
+    const walletPublicKey = new PublicKey(wallet)
+    const balance = await getTftBalance(walletPublicKey)
 
-    return NextResponse.json(balance)
+    return NextResponse.json({
+      balance,
+      formattedBalance: balance.toLocaleString()
+    })
   } catch (error) {
     console.error("Error fetching balance:", error)
     return NextResponse.json(

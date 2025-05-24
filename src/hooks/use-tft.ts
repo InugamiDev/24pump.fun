@@ -1,94 +1,112 @@
-import { useState, useEffect, useCallback } from "react"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { getTFTBalance, formatTFTAmount } from "@/lib/tft-token"
+"use client";
 
-interface UseTFTResult {
-  balance: number | null
-  formattedBalance: string
-  loading: boolean
-  error: string | null
-  refreshBalance: () => Promise<void>
-  exchange: (solAmount: number) => Promise<string>
-}
+import { useCallback, useEffect, useState } from "react";
+import { useLazorkitWallet } from "@/components/providers/lazorkit-wallet-context";
+import {
+  getTftBalance,
+  ensureTftAta,
+  exchangeSolToTft,
+  exchangeTftToSol
+} from "@/lib/tft-token";
 
-export function useTFT(): UseTFTResult {
-  const { connected, publicKey } = useWallet()
-  const [balance, setBalance] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function useTFT() {
+  const { connected, publicKey } = useLazorkitWallet();
+  const [balance, setBalance] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const refreshBalance = useCallback(async () => {
+  const fetchBalance = useCallback(async () => {
     if (!connected || !publicKey) {
-      setBalance(null)
-      return
+      setBalance(0);
+      return;
     }
 
     try {
-      setLoading(true)
-      setError(null)
-      const { balance: newBalance } = await getTFTBalance(publicKey.toString())
-      setBalance(newBalance)
-    } catch (err) {
-      console.error("Error fetching TFT balance:", err)
-      setError("Failed to fetch TFT balance")
+      setIsLoading(true);
+      setError(null);
+      const balance = await getTftBalance(publicKey);
+      setBalance(balance);
+    } catch (error) {
+      console.error("Error fetching TFT balance:", error);
+      setError("Failed to fetch TFT balance");
+      setBalance(0);
     } finally {
-      setLoading(false)
+      setIsLoading(false);
     }
-  }, [connected, publicKey])
+  }, [connected, publicKey]);
 
-  // Initial load and periodic refresh
+  const setupTftAccount = useCallback(async () => {
+    if (!connected || !publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const ataAddress = await ensureTftAta(publicKey);
+      await fetchBalance();
+      return ataAddress;
+    } catch (error) {
+      console.error("Error setting up TFT account:", error);
+      setError("Failed to setup TFT account");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [connected, publicKey, fetchBalance]);
+
   useEffect(() => {
-    refreshBalance()
-    const interval = setInterval(refreshBalance, 10000) // Refresh every 10s
-    return () => clearInterval(interval)
-  }, [refreshBalance])
+    fetchBalance();
+  }, [fetchBalance]);
 
-  // Exchange SOL for TFT
-  const exchange = useCallback(async (solAmount: number): Promise<string> => {
+  const exchangeToTft = useCallback(async (solAmount: number) => {
     if (!connected || !publicKey) {
-      throw new Error("Wallet not connected")
+      throw new Error("Wallet not connected");
     }
 
     try {
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch("/api/exchange", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wallet: publicKey.toString(),
-          solAmount,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to exchange tokens")
-      }
-
-      // Update balance after exchange
-      await refreshBalance()
-
-      return data.signature
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to exchange tokens"
-      setError(message)
-      throw new Error(message)
+      setIsLoading(true);
+      setError(null);
+      const signature = await exchangeSolToTft(publicKey, solAmount);
+      await fetchBalance();
+      return signature;
+    } catch (error) {
+      console.error("Error exchanging SOL to TFT:", error);
+      setError("Failed to exchange SOL to TFT");
+      throw error;
     } finally {
-      setLoading(false)
+      setIsLoading(false);
     }
-  }, [connected, publicKey, refreshBalance])
+  }, [connected, publicKey, fetchBalance]);
+
+  const exchangeToSol = useCallback(async (tftAmount: number) => {
+    if (!connected || !publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const signature = await exchangeTftToSol(publicKey, tftAmount);
+      await fetchBalance();
+      return signature;
+    } catch (error) {
+      console.error("Error exchanging TFT to SOL:", error);
+      setError("Failed to exchange TFT to SOL");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [connected, publicKey, fetchBalance]);
 
   return {
     balance,
-    formattedBalance: balance ? formatTFTAmount(balance) : "0.00",
-    loading,
+    isLoading,
     error,
-    refreshBalance,
-    exchange,
-  }
+    fetchBalance,
+    setupTftAccount,
+    exchangeToTft,
+    exchangeToSol,
+    formattedBalance: balance.toLocaleString(),
+  };
 }

@@ -13,7 +13,7 @@ export function Footer() {
             >
               24pump.fun
             </Link>
-            . Empowering temporal ownership on Solana.
+            . Creating meaningful moments and lasting social impact on Solana.
           </p>
         </div>
         <div className="flex gap-4">

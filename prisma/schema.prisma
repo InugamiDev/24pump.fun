@@ -8,22 +8,82 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  wallet    String   @unique
-  coins     Coin[]
-  createdAt DateTime @default(now())
+  id                String              @id @default(cuid())
+  wallet            String              @unique
+  createdSeries     MomentCoinSeries[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 }
 
-model Coin {
-  id          String   @id @default(cuid())
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  name        String
-  symbol      String
-  mmdd        String   // unique per year
-  year        Int
-  txSignature String
-  createdAt   DateTime @default(now())
+model MomentCoinSeries {
+  id                    String              @id @default(cuid())
+  ownerId              String
+  owner                User                 @relation(fields: [ownerId], references: [id])
+  
+  name                 String
+  symbol               String
+  momentDateTimeUTC    DateTime
+  narrative            String               @db.Text
+  totalSupply          BigInt
+  smartContractAddress String               @unique
+  creationTxSignature  String?
+  burnable             Boolean              @default(false)
 
-  @@unique([mmdd, year])
+  socialCauseId        String
+  socialCause          SocialCause          @relation(fields: [socialCauseId], references: [id])
+
+  transactions         Transaction[]
+  socialContributions  SocialContribution[]
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+}
+
+model SocialCause {
+  id                      String              @id @default(cuid())
+  name                    String              @unique
+  description             String?             @db.Text
+  receivingWalletAddress String              @unique
+  isActive               Boolean              @default(true)
+  
+  momentCoinSeries        MomentCoinSeries[]
+  socialContributions     SocialContribution[]
+
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+}
+
+model Transaction {
+  id                    String           @id @default(cuid())
+  momentCoinSeriesId    String
+  momentCoinSeries      MomentCoinSeries @relation(fields: [momentCoinSeriesId], references: [id])
+
+  transactionType       String           // e.g., "BUY", "SELL", "SWAP"
+  buyerWallet          String?
+  sellerWallet         String?
+  amount               BigInt
+  pricePerToken        Float?
+  totalTransactionValue Float?
+  currency             String           // e.g., "SOL", "USDC"
+  
+  platformFeeCollected Float
+  onChainTxSignature   String           @unique
+  timestamp            DateTime         @default(now())
+}
+
+model SocialContribution {
+  id                    String           @id @default(cuid())
+  
+  socialCauseId         String
+  socialCause           SocialCause      @relation(fields: [socialCauseId], references: [id])
+  
+  momentCoinSeriesId    String?
+  momentCoinSeries      MomentCoinSeries? @relation(fields: [momentCoinSeriesId], references: [id])
+
+  amountContributed     Float
+  currency              String          // e.g., "SOL", "USDC"
+  
+  contributionTxSignature String         @unique
+  notes                   String?        @db.Text
+  timestamp              DateTime        @default(now())
 }

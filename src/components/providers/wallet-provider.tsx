@@ -70,12 +70,8 @@ export const WalletProvider = ({ children, ...props }: WalletProviderProps) => {
  
   // List of public RPC endpoints based on network type
   const publicRPCs = useMemo(
-    () => [
-      isMainnet
-        ? (process.env.NEXT_PUBLIC_SOLANA_RPC_URL as string)
-        : (process.env.NEXT_PUBLIC_SOLANA_RPC_URL_DEVNET as string),
-    ],
-    [isMainnet]
+    () => [process.env.NEXT_PUBLIC_SOLANA_RPC_HOST as string],
+    []
   );
  
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -3,7 +3,8 @@ import { Space_Grotesk, Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { WalletProvider } from "@/components/wallet-provider"
+import { ClientLazorkitProvider } from "@/components/providers/client-lazorkit-provider"
+import { WalletDialogProvider } from "@/contexts/wallet-dialog-context"
 import "./globals.css"
 
 const spaceGrotesk = Space_Grotesk({
@@ -17,9 +18,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "24pump.fun – Your Moment, Tokenized",
-  description: "A gamified platform that lets users mint a coin tied to a specific calendar date—creating digital artifacts of time, milestones, and narrative ownership.",
-  keywords: ["NFT", "Web3", "Blockchain", "Time", "Digital Artifacts", "Solana"],
+  title: "24pump.fun – Tokenize Moments for Social Good on Solana",
+  description: "Create unique, date-stamped crypto coins on Solana with 24pump.fun. Turn your moments into tradable assets that fuel positive social impact and build a trustworthy crypto ecosystem.",
+  keywords: ["Social Impact Crypto", "Solana Projects", "Meme Coin with Purpose", "Tokenize Moments", "Anti Rug Pull Crypto", "Crypto Philanthropy", "Date Token", "Blockchain for Good", "Limited Supply Token", "Charitable Crypto"],
 }
 
 export default function RootLayout({
@@ -36,7 +37,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <WalletProvider>
+          <WalletDialogProvider>
+            <ClientLazorkitProvider>
             <div className="flex min-h-screen flex-col">
               <Navbar />
               <main className="flex-1">
@@ -44,7 +46,8 @@ export default function RootLayout({
               </main>
               <Footer />
             </div>
-          </WalletProvider>
+            </ClientLazorkitProvider>
+          </WalletDialogProvider>
         </ThemeProvider>
       </body>
     </html>

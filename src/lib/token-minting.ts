@@ -1,113 +1,141 @@
 import {
-  PublicKey,
+  Connection,
   Keypair,
+  PublicKey,
   SystemProgram,
   Transaction,
-} from "@solana/web3.js"
-import { connection } from "./solana"
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { connection } from "./solana";
+import { SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID } from "./tft-token";
 
-// In production, this would be properly secured
-const AUTHORITY_KEYPAIR = Keypair.generate()
-
-interface MintTokenParams {
-  recipientAddress: string
-  name: string
-  symbol: string
-  mmdd: string
-  year: number
+interface MintConfig {
+  name: string;
+  symbol: string;
+  totalSupply: bigint;
+  decimals: number;
+  burnable: boolean;
 }
 
-export async function mintDateToken({
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-  recipientAddress,
-  name,
-  symbol,
-  mmdd,
-  year,
-}: MintTokenParams): Promise<{ signature: string; tokenAddress: string }> {
+function createMintToInstructionData(amount: bigint): Buffer {
+  const buffer = Buffer.alloc(9);
+  buffer[0] = 7; // MintTo instruction
+  buffer.writeBigUInt64LE(amount, 1);
+  return buffer;
+}
+
+export async function createMomentCoinMint(
+  creatorWallet: PublicKey,
+  config: MintConfig
+): Promise<{ mintAddress: string, signature: string }> {
   try {
-    // Create a new token mint account
-    const mintKeypair = Keypair.generate()
-    const mintAccount = mintKeypair.publicKey
+    // Generate a new keypair for the mint
+    const mintKeypair = Keypair.generate();
+    const mintPubkey = mintKeypair.publicKey;
 
-    // Calculate the rent-exempt reserve
-    const rentExemptBalance = await connection.getMinimumBalanceForRentExemption(
-      82 // Token mint size
-    )
+    // Calculate the rent-exempt reserve for the mint
+    const rentExemptMinimum = await connection.getMinimumBalanceForRentExemption(82);
 
-    // Create transaction
-    const transaction = new Transaction()
+    // Create the mint account
+    const createMintAccountIx = SystemProgram.createAccount({
+      fromPubkey: creatorWallet,
+      newAccountPubkey: mintPubkey,
+      space: 82,
+      lamports: rentExemptMinimum,
+      programId: TOKEN_PROGRAM_ID,
+    });
 
-    // Add create account instruction
-    transaction.add(
-      SystemProgram.createAccount({
-        fromPubkey: AUTHORITY_KEYPAIR.publicKey,
-        newAccountPubkey: mintAccount,
-        space: 82,
-        lamports: rentExemptBalance,
-        programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-      })
-    )
+    // Initialize the mint
+    const initializeMintIx = new Transaction().add({
+      keys: [
+        { pubkey: mintPubkey, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: TOKEN_PROGRAM_ID,
+      data: Buffer.from([
+        0, // Initialize instruction
+        ...new Uint8Array([config.decimals]), // Number of decimals
+        ...creatorWallet.toBuffer(), // Mint authority
+        ...Buffer.from([0]), // Freeze authority (none)
+      ]),
+    });
 
-    // TODO: Add instructions for:
-    // 1. Initialize mint
-    // 2. Create associated token account for recipientAddress
-    // 3. Mint token to recipient
-    // 4. Create metadata with name and symbol
+    // Derive creator's ATA
+    const [ataAddress] = PublicKey.findProgramAddressSync(
+      [creatorWallet.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+      SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
+    );
 
-    const metadata = {
-      name: `${name} (${mmdd}/${year})`,
-      symbol,
-      uri: `https://api.24pump.fun/metadata/${mmdd}-${year}`,
-    }
-    console.log("Token metadata:", metadata)
+    // Create ATA for creator
+    const createAtaIx = new Transaction().add({
+      keys: [
+        { pubkey: creatorWallet, isSigner: true, isWritable: true },
+        { pubkey: ataAddress, isSigner: false, isWritable: true },
+        { pubkey: creatorWallet, isSigner: false, isWritable: false },
+        { pubkey: mintPubkey, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      programId: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+      data: Buffer.from([]),
+    });
 
-    // Send transaction
-    const signature = await connection.sendTransaction(
-      transaction,
-      [AUTHORITY_KEYPAIR, mintKeypair],
-      { skipPreflight: false }
-    )
+    // Mint tokens to creator's ATA
+    const mintToIx = new Transaction().add({
+      keys: [
+        { pubkey: mintPubkey, isSigner: false, isWritable: true },
+        { pubkey: ataAddress, isSigner: false, isWritable: true },
+        { pubkey: creatorWallet, isSigner: true, isWritable: false },
+      ],
+      programId: TOKEN_PROGRAM_ID,
+      data: createMintToInstructionData(config.totalSupply),
+    });
 
-    // Wait for confirmation
-    await connection.confirmTransaction(signature)
+    // Create transaction with latest blockhash
+    const transaction = new Transaction();
+    
+    // Get the latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = creatorWallet;
+
+    // Add all instructions
+    transaction
+      .add(createMintAccountIx)
+      .add(initializeMintIx)
+      .add(createAtaIx)
+      .add(mintToIx);
+
+    // Get phantom wallet
+    const phantom = (window as any).phantom?.solana;
+    if (!phantom) throw new Error("Phantom wallet not found");
+
+    // Sign and send transaction
+    const { signature } = await phantom.signAndSendTransaction(transaction);
+    await connection.confirmTransaction(signature, "confirmed");
 
     return {
+      mintAddress: mintPubkey.toString(),
       signature,
-      tokenAddress: mintAccount.toString(),
-    }
+    };
+
   } catch (error) {
-    console.error("Error minting token:", error)
-    throw new Error("Failed to mint token")
+    console.error("Error creating moment coin mint:", error);
+    throw error;
   }
 }
 
-// Function to generate PDA for date uniqueness check
-export function getDatePDA(mmdd: string, year: number): PublicKey {
-  // Convert date components to bytes
-  const mmddBuffer = Buffer.from(mmdd)
-  const yearBuffer = Buffer.alloc(2)
-  yearBuffer.writeUInt16LE(year)
-
-  const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("date"), mmddBuffer, yearBuffer],
-    new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "")
-  )
-
-  return pda
-}
-
-// Function to validate date PDA ownership
-export async function isDateAvailableOnChain(
-  mmdd: string,
-  year: number
-): Promise<boolean> {
+export async function isMintOwner(mintAddress: string, walletAddress: string): Promise<boolean> {
   try {
-    const datePDA = getDatePDA(mmdd, year)
-    const accountInfo = await connection.getAccountInfo(datePDA)
-    return accountInfo === null // if null, date is available
+    const mintInfo = await connection.getParsedAccountInfo(new PublicKey(mintAddress));
+    if (!mintInfo.value) return false;
+
+    const data = (mintInfo.value.data as any).parsed;
+    return data.info.mintAuthority === walletAddress;
   } catch (error) {
-    console.error("Error checking date availability:", error)
-    throw error
+    console.error("Error checking mint ownership:", error);
+    return false;
   }
 }
